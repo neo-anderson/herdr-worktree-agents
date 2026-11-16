@@ -14,6 +14,22 @@ Ask your agent for something like "review PR 42 with Claude and Codex." For each
 
 Agents never share files with each other or with your checkout. Nothing on disk is deleted without your yes.
 
+```mermaid
+flowchart TD
+    ask(["You: review PR 42 with Claude and Codex"]) --> main["Main agent"]
+    main -->|one per agent| wt["New worktree and branch,<br/>opened as its own herdr tab"]
+    wt --> work["Agent works, including<br/>subagents and background tasks"]
+    work --> check{"Marked done, idle,<br/>and nothing running<br/>in the background?"}
+    check -->|not yet| work
+    check -->|yes| countdown["Tab label counts down 2:00"]
+    countdown -->|agent starts working again| work
+    countdown -->|time is up| close["Report saved, tab closed,<br/>worktree kept"]
+    close --> synth["Main agent sums up the findings"]
+    synth --> q{"You: remove the worktrees?<br/>⚠️ warns about files that would be lost"}
+    q -->|yes| rm["Worktrees removed;<br/>branches with commits kept"]
+    q -->|no| keep["Everything stays on disk"]
+```
+
 ## Install
 
 ```bash

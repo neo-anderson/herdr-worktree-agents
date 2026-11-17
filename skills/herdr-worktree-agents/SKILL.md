@@ -49,6 +49,8 @@ The scripts live in this skill's `scripts/` folder. Below, `<skill-dir>` means t
    python3 -I <skill-dir>/scripts/spawn.py --run <run-id> --name <name> --continue
    ```
 
+   **If spawn exits with code 1 and `"state": "start_failed"`**, the agent never started. The script already retried once, closed the empty tab, and removed the unused worktree, so rerun the same spawn command once. If it fails again, tell the user the `error` text. Don't use `--continue` for this; it only resumes an agent blocked on a dialog.
+
 6. **Wait for results** without polling in the foreground. Run this with Bash `run_in_background`. It exits once every agent has created its done file or left the `running` state:
 
    ```bash
@@ -115,7 +117,7 @@ It also notifies the user once each time the agent gets blocked on a dialog, and
 
 ## Checking on or stopping a run
 
-- State: `jq .state ~/.local/state/herdr-agents/runs/<run>/<name>.json`. Values: `running`, `tab_closed`, `worktree_removed`, `agent_exited_unfinished`, `workspace_closed_externally`, `watch_timeout`, `close_failed:<code>`.
+- State: `jq .state ~/.local/state/herdr-agents/runs/<run>/<name>.json`. Values: `running`, `tab_closed`, `worktree_removed`, `agent_exited_unfinished`, `workspace_closed_externally`, `watch_timeout`, `close_failed:<code>`, `start_failed`.
 - Watcher log: `~/.local/state/herdr-agents/runs/<run>/<name>.log`.
 - To keep a tab open, kill its watcher (`watcher_pid` in the JSON).
 - To talk to a running agent, use the herdr skill's `agent prompt`, `agent read`, and `agent wait` with its name.

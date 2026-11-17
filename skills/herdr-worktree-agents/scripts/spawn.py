@@ -15,8 +15,10 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hwa_common import (  # noqa: E402
@@ -95,6 +97,58 @@ def resolve_base(repo, base, pr, remote):
     return git(repo, "rev-parse", "--verify", f"{base or 'HEAD'}^{{commit}}")
 
 
+def agent_status(name):
+    try:
+        return herdr("agent", "get", name)["agent"]["agent_status"]
+    except HerdrError:
+        return None
+
+
+def start_agent(meta, start):
+    """Start the agent, retrying once if the first attempt fails for a reason
+    other than a startup dialog (for example, a transient herdr error)."""
+    try:
+        herdr(*start)
+        return
+    except HerdrError as e:
+        if e.code == "agent_not_ready":
+            raise
+        meta.setdefault("start_errors", []).append(f"{e.code}: {e.message}")
+        save_meta(meta)
+    time.sleep(3)
+    status = agent_status(meta["name"])
+    if status in ("idle", "done"):
+        return  # it started after all; only the readiness check failed
+    if status == "blocked":
+        raise HerdrError("agent_not_ready", "agent is blocked during startup")
+    if status is None:
+        herdr(*start)  # the pane is still a plain shell: try once more
+        return
+    # The agent is present but neither ready nor blocked (e.g. still loading).
+    herdr("agent", "wait", meta["name"], "--until", "idle", "--until", "blocked",
+          "--timeout", "30000")
+    if agent_status(meta["name"]) == "blocked":
+        raise HerdrError("agent_not_ready", "agent is blocked during startup")
+
+
+def undo_failed_start(meta, err):
+    """No agent ever ran here, so the tab and worktree hold nothing of value.
+    Close the tab and remove the fresh worktree and branch so the same spawn
+    command can be rerun. Anything unexpected on disk is left in place."""
+    meta["state"] = "start_failed"
+    meta["start_error"] = f"{err.code}: {err.message}"
+    herdr("workspace", "close", meta["workspace_id"], check=False)
+    path, repo = meta["worktree_path"], meta["repo"]
+    shutil.rmtree(os.path.join(path, MARKER_DIR), ignore_errors=True)
+    if os.path.isdir(path) and not git(path, "status", "--porcelain", "--ignored", check=False):
+        git(repo, "worktree", "remove", path, check=False)
+    if not os.path.isdir(path):
+        tip = git(repo, "rev-parse", "--verify", "--quiet", meta["branch"], check=False)
+        if tip and tip == meta["start_commit"]:
+            git(repo, "branch", "-D", meta["branch"], check=False)
+    save_meta(meta)
+
+
 def send_prompt_and_watch(meta):
     with open(meta["prompt_file"]) as f:
         task = f.read().strip()
@@ -152,7 +206,14 @@ def main():
 
     if a.cont:
         meta = load_meta(a.run, a.name)
-        status = herdr("agent", "get", a.name)["agent"]["agent_status"]
+        if meta.get("state") != "blocked_at_startup":
+            fail("--continue only resumes an agent that was blocked at startup; "
+                 f"this one is '{meta.get('state')}'", 2)
+        status = agent_status(a.name)
+        if status is None:
+            fail("no agent is running in its pane any more. Close its tab with "
+                 f"`herdr workspace close {meta['workspace_id']}`, then spawn again "
+                 "with a new name.", 1, workspace_id=meta["workspace_id"])
         if status == "blocked":
             fail("agent is still blocked; resolve the dialog first", 3, pane_id=meta["pane_id"])
         send_prompt_and_watch(meta)
@@ -205,7 +266,7 @@ def main():
         save_meta(meta)
         if agent_args:
             start += ["--", *agent_args]
-        herdr(*start)
+        start_agent(meta, start)
     except HerdrError as e:
         if e.code == "agent_not_ready":
             meta["state"] = "blocked_at_startup"
@@ -215,7 +276,12 @@ def main():
                  "`herdr agent send-keys`, then rerun with --continue", 3,
                  pane_id=meta["pane_id"], workspace_id=meta["workspace_id"],
                  screen=screen.get("raw", screen))
-        raise
+        undo_failed_start(meta, e)
+        kept = os.path.isdir(meta["worktree_path"])
+        fail(f"agent did not start ({e.code}: {e.message}). Its tab was closed"
+             + ("; its worktree was kept because it is not empty." if kept else
+                " and its unused worktree removed, so the same spawn command can be rerun."),
+             1, state=meta["state"], worktree_kept=kept)
 
     send_prompt_and_watch(meta)
     print(json.dumps({"ok": True, **meta}, indent=2))

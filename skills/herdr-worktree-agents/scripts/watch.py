@@ -165,7 +165,8 @@ def main():
             set_label(meta, name)
             log(f"countdown reset (done={done} status={status} busy_shells={len(busy)})")
 
-        time.sleep(POLL)
+        # Tick every second during the countdown so the tab label counts down smoothly.
+        time.sleep(1 if countdown_end is not None else POLL)
 
 
 if __name__ == "__main__":

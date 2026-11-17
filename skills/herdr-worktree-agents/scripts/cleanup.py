@@ -93,11 +93,12 @@ def files_at_risk(path):
         name = name.strip('"')
         if name.startswith(MARKER_DIR + "/"):
             continue
-        if code == "!!":
-            if disposable(name):
-                skipped_ignored += 1
-            else:
-                ignored.append({"path": name, "kind": classify(name)})
+        if code in ("!!", "??") and disposable(name):
+            # Caches and dependencies, ignored or not (a repo without a
+            # .gitignore shows __pycache__ as untracked).
+            skipped_ignored += 1
+        elif code == "!!":
+            ignored.append({"path": name, "kind": classify(name)})
         else:
             uncommitted.append({"path": name, "kind": classify(name), "status": code.strip()})
     return uncommitted, ignored, skipped_ignored

@@ -4,6 +4,16 @@
 
 It's an agent skill for herdr, the terminal multiplexer for coding agents. If you've used Orca's worker flow, where Claude or Codex runs in its own worktree and reports back, this is the same idea for herdr. Like Orca's Orchestrator V3, it closes each worker's tab two minutes after the worker finishes, which frees the terminal and keeps your workspace tidy.
 
+![A main Claude agent starts Sonnet and Codex reviewers in their own herdr tabs. The Sonnet tab counts down and closes, then the main agent sums up both reviews and asks whether to remove the worktrees.](docs/demo.gif)
+
+**What it's good for:**
+
+- **Bake-offs.** Give Claude and Codex the same task, then compare their approaches and keep the better branch.
+- **Second-opinion reviews.** Have two models review the same PR, and let your main agent reconcile what they found.
+- **Splitting a big change into smaller PRs.** One agent per slice, each on its own branch, so every slice becomes its own reviewable PR.
+- **Parallel chores.** Fix a bug, write the missing tests, and update the docs at the same time without agents stepping on each other's files.
+- **Safe experiments.** Try a refactor or a dependency upgrade in a throwaway worktree, and keep it only if it works.
+
 Ask your agent for something like "review PR 42 with Claude and Codex." For each agent, the skill:
 
 1. creates its own git worktree on its own branch,

@@ -231,9 +231,16 @@ def main():
     base_sha = resolve_base(repo, a.base, a.pr, a.remote)
     branch = a.branch or f"herdr/{a.run}-{a.name}"
     ensure_excluded(repo)
+    config = load_config()
 
-    res = herdr("worktree", "create", "--cwd", repo, "--branch", branch, "--base", base_sha,
-                "--label", a.name, "--no-focus")
+    create = ["worktree", "create", "--cwd", repo, "--branch", branch, "--base", base_sha,
+              "--label", a.name, "--no-focus"]
+    # Optional: put worktrees under <root>/<repo>/<branch-slug> instead of herdr's default.
+    root = os.environ.get("HWA_WORKTREE_ROOT") or config.get("worktree_root")
+    if root:
+        create += ["--path", os.path.join(os.path.abspath(os.path.expanduser(root)),
+                                          os.path.basename(repo), branch.replace("/", "-"))]
+    res = herdr(*create)
     ws = res["workspace"]
     path = res["worktree"]["path"]
     meta = {
@@ -256,7 +263,7 @@ def main():
         start = ["agent", "start", a.name, "--kind", a.kind, "--pane", meta["pane_id"],
                  "--timeout", "60000"]
         agent_args = list(a.agent_args)
-        use_yolo = a.yolo if a.yolo is not None else bool(load_config().get("yolo", False))
+        use_yolo = a.yolo if a.yolo is not None else bool(config.get("yolo", False))
         meta["yolo"] = use_yolo
         if use_yolo:
             flag = PERMISSION_BYPASS.get(a.kind)

@@ -116,7 +116,7 @@ python3 <skill-dir>/scripts/cleanup.py --run <run> --remove   # remove the ones 
 
 ## What it changes on your machine
 
-- **Worktrees** under `~/.herdr/worktrees/<repo>/`, managed by herdr.
+- **Worktrees** under `~/.herdr/worktrees/<repo>/`, managed by herdr. To put them somewhere else, set `worktree_root = "/path"` in `~/.config/herdr-worktree-agents/config.toml`, or the `HWA_WORKTREE_ROOT` environment variable. Worktrees then go in `<root>/<repo>/<branch>`.
 - **Branches** named `herdr/<run>-<name>` in your repo. When you approve cleanup, branches without new commits are deleted.
 - **One line, `/.herdr-agent/`, in each repo's `.git/info/exclude`**, so the agent's report and done files never show up in `git status` or get committed. This file is local to your clone and is never pushed.
 - **State and logs** in `~/.local/state/herdr-agents/runs/` (or `$XDG_STATE_HOME`).

@@ -14,7 +14,7 @@ It's an agent skill for herdr, the terminal multiplexer for coding agents. If yo
 - **Parallel chores.** Fix a bug, write the missing tests, and update the docs at the same time without agents stepping on each other's files.
 - **Safe experiments.** Try a refactor or a dependency upgrade in a throwaway worktree, and keep it only if it works.
 
-Ask your agent for something like "review PR 42 with Claude and Codex." For each agent, the skill:
+Ask your agent for something like "review PR 42 with Claude and Codex, each in its own worktree." For each agent, the skill:
 
 1. creates its own git worktree on its own branch,
 2. opens that worktree as its own herdr workspace and tab, named after the agent,
@@ -47,7 +47,14 @@ npx skills add herdrdev/herdr                 # the herdr skill this one builds 
 npx skills add neo-anderson/herdr-worktree-agents
 ```
 
-The skill applies only when your agent is running inside a herdr pane (`HERDR_ENV=1`). Once installed, it becomes the default way your agent starts other agents through herdr, replacing the herdr skill's split-pane default.
+The skill applies only when your agent is running inside a herdr pane (`HERDR_ENV=1`). By default it's used only when you ask for it, for example "review PR 42 with Claude and Codex, each in its own worktree." Otherwise your agent keeps the herdr skill's usual behavior of starting agents in split panes next to it.
+
+To make it the default way your agent starts other agents through herdr, opt in:
+
+```toml
+# ~/.config/herdr-worktree-agents/config.toml
+default_for_agents = true
+```
 
 ### Requirements
 

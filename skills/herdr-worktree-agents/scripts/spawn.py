@@ -26,6 +26,7 @@ from hwa_common import (  # noqa: E402
     HerdrError,
     git,
     herdr,
+    load_config,
     load_meta,
     now,
     run_dir,
@@ -36,11 +37,6 @@ from watch import command_shells  # noqa: E402
 # YOLO mode: start agents with their approval prompts (and, for Codex, the
 # sandbox) turned off. Off by default. Enable per run with --yolo, or for every
 # run with `yolo = true` in the config file. --no-yolo overrides the config.
-CONFIG_PATH = os.path.join(
-    os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
-    "herdr-worktree-agents",
-    "config.toml",
-)
 PERMISSION_BYPASS = {
     "codex": "--dangerously-bypass-approvals-and-sandbox",
     "claude": "--dangerously-skip-permissions",
@@ -76,17 +72,6 @@ def ensure_excluded(repo):
     if line not in existing.splitlines():
         with open(exclude, "a") as f:
             f.write(("" if existing.endswith("\n") or not existing else "\n") + line + "\n")
-
-
-def load_config():
-    if not os.path.exists(CONFIG_PATH):
-        return {}
-    try:
-        import tomllib
-    except ImportError:  # Python < 3.11
-        return {}
-    with open(CONFIG_PATH, "rb") as f:
-        return tomllib.load(f)
 
 
 def resolve_base(repo, base, pr, remote):

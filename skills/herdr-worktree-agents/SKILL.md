@@ -1,12 +1,11 @@
 ---
 name: herdr-worktree-agents
-description: "Default way to start coding agents (Claude, Codex, or any herdr agent kind) through herdr. Each agent gets its own git worktree, opened as its own herdr workspace and tab, and a watcher closes the tab 2 minutes after the agent's whole chain of work (including subagents and background tasks) is finished. Worktrees are kept until the user agrees to remove them. Use whenever the user asks to run, spawn, or start agents in herdr, or asks for something like 'review this PR with Sonnet and Codex' while running inside herdr. This replaces the herdr skill's sibling-pane default for starting agents; keep using the herdr skill for everything else. Requires HERDR_ENV=1."
+description: "Start coding agents (Claude, Codex, or any herdr agent kind) through herdr, each in its own git worktree, opened as its own herdr workspace and tab. A watcher closes the tab 2 minutes after the agent's whole chain of work (including subagents and background tasks) is finished, and worktrees are kept until the user agrees to remove them. Use when the user asks for agents in their own worktrees, tabs, or workspaces, for a bake-off, or names this skill. Also load it whenever the user asks to run, spawn, or start agents in herdr (e.g. 'review this PR with Sonnet and Codex'): step 1 checks the user's config, and unless they opted in with `default_for_agents = true`, you go back to the herdr skill's sibling-pane default. Requires HERDR_ENV=1."
 ---
 
 # Agents in their own herdr worktrees
 
-Use this instead of splitting panes whenever you start agents through herdr.
-Each agent gets:
+Each agent this skill starts gets:
 
 - its own branch and git worktree, so agents never share files with each other or with the user's checkout,
 - its own herdr workspace with one tab, labeled with the agent's name,
@@ -20,7 +19,10 @@ The scripts live in this skill's `scripts/` folder. Below, `<skill-dir>` means t
 
 ## Steps
 
-1. **Check you are inside herdr:** `test "${HERDR_ENV:-}" = 1`. If not, say so and stop.
+1. **Check you are inside herdr and that this skill applies.**
+   - `test "${HERDR_ENV:-}" = 1`. If not, say so and stop.
+   - If the user explicitly asked for worktrees, separate tabs or workspaces, a bake-off, or this skill, continue.
+   - Otherwise run `python3 -I <skill-dir>/scripts/config.py`. If `default_for_agents` is `true`, continue. If it is `false`, this skill is opt-in and the user hasn't opted in: start the agents with the herdr skill's sibling-pane default instead, and don't use anything below. If the output has `config_error`, tell the user their config file couldn't be read.
 
 2. **Pick a run id and agent names.** The run id groups agents started together, e.g. `pr42-1305`. Names must match `[a-z][a-z0-9_-]{0,31}` and be unique among live agents, e.g. `claude-review`, `codex-review`.
 

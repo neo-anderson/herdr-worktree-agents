@@ -11,6 +11,23 @@ STATE_ROOT = os.path.join(
     "runs",
 )
 MARKER_DIR = ".herdr-agent"  # inside each worktree; git-excluded
+CONFIG_PATH = os.path.join(
+    os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+    "herdr-worktree-agents",
+    "config.toml",
+)
+
+
+def load_config():
+    """The user's config file as a dict; empty if missing or Python < 3.11."""
+    if not os.path.exists(CONFIG_PATH):
+        return {}
+    try:
+        import tomllib
+    except ImportError:  # Python < 3.11
+        return {}
+    with open(CONFIG_PATH, "rb") as f:
+        return tomllib.load(f)
 
 
 class HerdrError(Exception):

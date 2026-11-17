@@ -111,6 +111,23 @@ def summarize(files):
     return {k: counts[k] for k in KIND_ORDER if k in counts}
 
 
+def tab_open(meta):
+    """True if the agent's workspace is still open. Workspace IDs are only unique
+    within one herdr session, so also confirm a pane in it sits in the worktree."""
+    ws = herdr("workspace", "get", meta["workspace_id"], check=False)
+    if "error" in ws:
+        return False
+    panes = herdr("pane", "list", "--workspace", meta["workspace_id"], check=False)
+    if "error" in panes:
+        return True  # can't tell; err on the side of keeping it
+    root = os.path.realpath(meta["worktree_path"])
+    for p in panes.get("panes", []):
+        cwd = os.path.realpath(p.get("cwd") or "")
+        if cwd == root or cwd.startswith(root + os.sep):
+            return True
+    return False
+
+
 def inspect(meta):
     path = meta["worktree_path"]
     info = {
@@ -121,8 +138,7 @@ def inspect(meta):
         "saved_report": meta["saved_report"] if os.path.exists(meta["saved_report"]) else None,
         "exists": os.path.isdir(path),
     }
-    ws = herdr("workspace", "get", meta["workspace_id"], check=False)
-    info["tab_open"] = "error" not in ws
+    info["tab_open"] = tab_open(meta)
 
     tip = git(meta["repo"], "rev-parse", "--verify", "--quiet", meta["branch"], check=False)
     info["branch_exists"] = bool(tip)
@@ -155,8 +171,18 @@ def remove(meta, info, discard):
         return "skipped: its tab is still open"
     if info["has_work_at_risk"] and not discard:
         return f"skipped: {info['at_risk_count']} file(s) would be lost"
-    args = ["worktree", "remove"] + (["--force"] if discard else []) + [meta["worktree_path"]]
-    git(meta["repo"], *args)
+    # git refuses to remove a worktree holding any untracked file, even a cache.
+    # Forcing is safe here: either the user agreed to discard the files at risk,
+    # or the inspection found none (only caches and dependencies).
+    if not discard:
+        unc, ign, _ = files_at_risk(meta["worktree_path"])  # recheck just before forcing
+        if unc or ign:
+            return f"skipped: {len(unc) + len(ign)} file(s) would be lost"
+    args = ["worktree", "remove", "--force", meta["worktree_path"]]
+    try:
+        git(meta["repo"], *args)
+    except RuntimeError as e:
+        return f"failed: {e}"
     result = "worktree removed"
     if info["branch_exists"]:
         if not info["new_commits"]:
